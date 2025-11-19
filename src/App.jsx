@@ -15,6 +15,7 @@ import {
   Wifi,
   WifiOff,
   AlertCircle,
+  Link as LinkIcon,
 } from "lucide-react";
 import io from "socket.io-client";
 
@@ -37,16 +38,32 @@ const socket = io(SERVER_URL);
  * Fallback for HTTP contexts where crypto.randomUUID is unavailable.
  */
 const generateUUID = () => {
-  // Try native secure API first
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback for non-secure (HTTP) contexts
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+};
+
+/**
+ * Get initial List ID from URL param or LocalStorage
+ */
+const getInitialListId = () => {
+  // 1. Check URL for ?listId=xyz
+  const params = new URLSearchParams(window.location.search);
+  const urlListId = params.get("listId");
+
+  if (urlListId) {
+    // Clean the URL so the user doesn't get stuck on this query param if they refresh
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return urlListId;
+  }
+
+  // 2. Fallback to storage or new ID
+  return localStorage.getItem("grocery_list_id") || generateUUID();
 };
 
 // --- Components ---
@@ -81,12 +98,13 @@ const Button = ({
 
 const ShareModal = ({ listId, onClose, onJoin }) => {
   const [code, setCode] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
-  const handleCopy = () => {
-    // Fallback copy mechanism for wider browser support
+  const shareUrl = `${window.location.origin}?listId=${listId}`;
+
+  const handleCopyLink = () => {
     const textArea = document.createElement("textarea");
-    textArea.value = listId;
+    textArea.value = shareUrl;
     textArea.style.position = "fixed";
     textArea.style.left = "-9999px";
     document.body.appendChild(textArea);
@@ -94,8 +112,8 @@ const ShareModal = ({ listId, onClose, onJoin }) => {
     textArea.select();
     try {
       document.execCommand("copy");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
     } catch (err) {
       console.error("Copy failed", err);
     }
@@ -103,73 +121,76 @@ const ShareModal = ({ listId, onClose, onJoin }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-zinc-800">
-        <div className="p-4 bg-slate-50 dark:bg-zinc-950 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-          <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
-            <Users size={18} className="text-emerald-500" /> Family Sync
+    <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200'>
+      <div className='bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-zinc-800'>
+        <div className='p-4 bg-slate-50 dark:bg-zinc-950 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center'>
+          <h3 className='font-bold text-slate-800 dark:text-white flex items-center gap-2'>
+            <Users size={18} className='text-emerald-500' /> Family Sync
           </h3>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300"
+            className='text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300'
           >
             ✕
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className='p-6 space-y-6'>
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Current List Code
+            <label className='block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2'>
+              Share Invite Link
             </label>
-            <div className="flex gap-2">
-              <code className="flex-1 bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3 rounded-lg font-mono text-sm truncate text-slate-600 dark:text-zinc-300">
-                {listId}
-              </code>
+            <div className='flex flex-col gap-3'>
+              <div className='p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-900/30'>
+                <p className='text-xs text-emerald-800 dark:text-emerald-200 break-all font-mono mb-2'>
+                  {shareUrl}
+                </p>
+              </div>
               <Button
-                variant="primary"
-                onClick={handleCopy}
-                className="py-2 px-4"
+                variant='primary'
+                onClick={handleCopyLink}
+                className='w-full'
               >
-                {copied ? <Check size={18} /> : <Copy size={18} />}
+                {copiedLink ? <Check size={18} /> : <LinkIcon size={18} />}
+                {copiedLink ? "Link Copied!" : "Copy Link"}
               </Button>
             </div>
-            <p className="text-xs text-slate-500 dark:text-zinc-500 mt-2">
-              Share this code to edit this list on another device.
+            <p className='text-xs text-slate-500 dark:text-zinc-500 mt-2'>
+              Anyone with this link can view and edit this list.
             </p>
           </div>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200 dark:border-zinc-800"></div>
+          <div className='relative'>
+            <div className='absolute inset-0 flex items-center'>
+              <div className='w-full border-t border-slate-200 dark:border-zinc-800'></div>
             </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white dark:bg-zinc-900 px-2 text-xs text-slate-400 uppercase">
+            <div className='relative flex justify-center'>
+              <span className='bg-white dark:bg-zinc-900 px-2 text-xs text-slate-400 uppercase'>
                 Or
               </span>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Join Existing List
+            <label className='block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2'>
+              Join Manually
             </label>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 onJoin(code);
               }}
-              className="flex gap-2"
+              className='flex gap-2'
             >
               <input
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="Enter code..."
-                className="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder='Enter code...'
+                className='flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500'
               />
               <Button
-                variant="secondary"
-                type="submit"
+                variant='secondary'
+                type='submit'
                 disabled={code.length < 3}
               >
                 Join
@@ -192,10 +213,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isConnected, setIsConnected] = useState(socket.connected);
-  // Use generateUUID fallback instead of crypto.randomUUID directly
-  const [listId, setListId] = useState(
-    () => localStorage.getItem("grocery_list_id") || generateUUID()
-  );
+
+  // Initialize List ID from URL (if shared link used) or LocalStorage
+  const [listId, setListId] = useState(() => getInitialListId());
+
   const [showShare, setShowShare] = useState(false);
   const inputRef = useRef(null);
 
@@ -270,14 +291,14 @@ export default function App() {
     if (!newItem.trim()) return;
 
     const itemPayload = {
-      id: generateUUID(), // Use fallback here as well
+      id: generateUUID(),
       listId,
       name: newItem.trim(),
       quantity: parseInt(newQty) || 1,
       createdAt: Date.now(),
     };
 
-    // Optimistic Update (Show it immediately before server confirms)
+    // Optimistic Update
     setGroceries((prev) => [itemPayload, ...prev]);
     setNewItem("");
     setNewQty(1);
@@ -291,7 +312,6 @@ export default function App() {
       });
     } catch (err) {
       console.error("Add failed", err);
-      // In a real app, you'd revert the optimistic update here
       setError("Failed to save item. Is backend running?");
     }
   };
@@ -333,32 +353,32 @@ export default function App() {
   // --- Render ---
 
   return (
-    <div className="h-full min-h-screen bg-slate-100 dark:bg-zinc-950 text-slate-800 dark:text-slate-100 transition-colors font-sans">
-      <div className="max-w-md mx-auto bg-white dark:bg-black shadow-2xl min-h-screen sm:min-h-0 flex flex-col sm:border-x sm:border-slate-200 dark:sm:border-zinc-800">
+    <div className='h-full min-h-screen bg-slate-100 dark:bg-zinc-950 text-slate-800 dark:text-slate-100 transition-colors font-sans'>
+      <div className='max-w-md mx-auto bg-white dark:bg-black shadow-2xl min-h-screen sm:min-h-0 flex flex-col sm:border-x sm:border-slate-200 dark:sm:border-zinc-800'>
         {/* Header */}
-        <div className="bg-emerald-600 dark:bg-emerald-900/80 p-6 text-white flex justify-between items-center transition-colors sticky top-0 z-20">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm shadow-sm">
-              <ShoppingCart className="w-6 h-6" />
+        <div className='bg-emerald-600 dark:bg-emerald-900/80 p-6 text-white flex justify-between items-center transition-colors sticky top-0 z-20'>
+          <div className='flex items-center gap-3'>
+            <div className='p-2 bg-white/20 rounded-xl backdrop-blur-sm shadow-sm'>
+              <ShoppingCart className='w-6 h-6' />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">OurGroceries</h1>
-              <div className="flex items-center gap-1.5 text-xs text-emerald-100 opacity-90">
+              <h1 className='text-xl font-bold tracking-tight'>OurGroceries</h1>
+              <div className='flex items-center gap-1.5 text-xs text-emerald-100 opacity-90'>
                 {isConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
                 <span>{isConnected ? "Synced" : "Connecting..."}</span>
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className='flex gap-2'>
             <button
               onClick={() => setShowShare(true)}
-              className="p-2.5 hover:bg-white/20 rounded-full transition-colors active:scale-95"
+              className='p-2.5 hover:bg-white/20 rounded-full transition-colors active:scale-95'
             >
               <Share2 size={20} />
             </button>
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2.5 hover:bg-white/20 rounded-full transition-colors active:scale-95"
+              className='p-2.5 hover:bg-white/20 rounded-full transition-colors active:scale-95'
             >
               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
@@ -367,24 +387,24 @@ export default function App() {
 
         {/* Error Banner */}
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/30 p-3 flex items-center justify-center gap-2 text-sm text-red-600 dark:text-red-400 border-b border-red-100 dark:border-red-900/50">
+          <div className='bg-red-50 dark:bg-red-900/30 p-3 flex items-center justify-center gap-2 text-sm text-red-600 dark:text-red-400 border-b border-red-100 dark:border-red-900/50'>
             <AlertCircle size={16} />
             <span>{error}</span>
           </div>
         )}
 
         {/* Input Area */}
-        <div className="p-4 bg-slate-50 dark:bg-zinc-900/80 border-b border-slate-200 dark:border-zinc-800 sticky top-[88px] sm:top-0 z-10 backdrop-blur-md">
-          <form onSubmit={handleAddItem} className="flex gap-2">
-            <div className="relative w-16">
+        <div className='p-4 bg-slate-50 dark:bg-zinc-900/80 border-b border-slate-200 dark:border-zinc-800 sticky top-[88px] sm:top-0 z-10 backdrop-blur-md'>
+          <form onSubmit={handleAddItem} className='flex gap-2'>
+            <div className='relative w-16'>
               <input
-                type="number"
-                min="1"
+                type='number'
+                min='1'
                 value={newQty}
                 onChange={(e) => setNewQty(e.target.value)}
-                className="w-full px-2 py-3.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-center font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all"
+                className='w-full px-2 py-3.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-center font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all'
               />
-              <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-slate-50 dark:bg-zinc-900 px-1 text-slate-400 uppercase">
+              <span className='absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-slate-50 dark:bg-zinc-900 px-1 text-slate-400 uppercase'>
                 Qty
               </span>
             </div>
@@ -392,13 +412,13 @@ export default function App() {
               ref={inputRef}
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
-              placeholder="Add item..."
-              className="flex-1 px-4 py-3.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all"
+              placeholder='Add item...'
+              className='flex-1 px-4 py-3.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all'
             />
             <Button
-              type="submit"
+              type='submit'
               disabled={!newItem.trim()}
-              className="aspect-square !p-0 w-[52px]"
+              className='aspect-square !p-0 w-[52px]'
             >
               <Plus size={26} strokeWidth={2.5} />
             </Button>
@@ -406,24 +426,24 @@ export default function App() {
         </div>
 
         {/* List Content */}
-        <div className="flex-1 overflow-y-auto p-0 bg-white dark:bg-black">
+        <div className='flex-1 overflow-y-auto p-0 bg-white dark:bg-black'>
           {loading && groceries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-3 text-emerald-600 dark:text-emerald-500">
-              <Loader2 className="animate-spin w-8 h-8" />
-              <span className="text-sm font-medium">Loading List...</span>
+            <div className='flex flex-col items-center justify-center h-64 gap-3 text-emerald-600 dark:text-emerald-500'>
+              <Loader2 className='animate-spin w-8 h-8' />
+              <span className='text-sm font-medium'>Loading List...</span>
             </div>
           ) : groceries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-slate-400 dark:text-zinc-600 text-center p-8">
-              <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-4">
-                <ShoppingCart className="w-8 h-8 opacity-50" />
+            <div className='flex flex-col items-center justify-center h-64 text-slate-400 dark:text-zinc-600 text-center p-8'>
+              <div className='w-16 h-16 bg-slate-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-4'>
+                <ShoppingCart className='w-8 h-8 opacity-50' />
               </div>
-              <p className="text-lg font-medium">List is empty</p>
-              <p className="text-sm mt-1">
+              <p className='text-lg font-medium'>List is empty</p>
+              <p className='text-sm mt-1'>
                 Add items above or share your code to sync.
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-zinc-800 pb-20">
+            <ul className='divide-y divide-slate-100 dark:divide-zinc-800 pb-20'>
               {sortedGroceries.map((item) => (
                 <li
                   key={item.id}
@@ -455,12 +475,12 @@ export default function App() {
 
                   {/* Text */}
                   <div
-                    className="flex-1 cursor-pointer min-w-0"
+                    className='flex-1 cursor-pointer min-w-0'
                     onClick={() =>
                       updateItem(item.id, { completed: !item.completed })
                     }
                   >
-                    <div className="flex items-center gap-2">
+                    <div className='flex items-center gap-2'>
                       <span
                         className={`text-lg font-medium truncate ${
                           item.completed
@@ -485,15 +505,15 @@ export default function App() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1">
-                    <div className="flex bg-slate-100 dark:bg-zinc-900 rounded-lg border border-slate-200 dark:border-zinc-800">
+                  <div className='flex items-center gap-1'>
+                    <div className='flex bg-slate-100 dark:bg-zinc-900 rounded-lg border border-slate-200 dark:border-zinc-800'>
                       <button
                         onClick={() =>
                           updateItem(item.id, {
                             quantity: Math.max(1, (item.quantity || 1) - 1),
                           })
                         }
-                        className="p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                        className='p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors'
                       >
                         <Minus size={14} />
                       </button>
@@ -503,14 +523,14 @@ export default function App() {
                             quantity: (item.quantity || 1) + 1,
                           })
                         }
-                        className="p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                        className='p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors'
                       >
                         <Plus size={14} />
                       </button>
                     </div>
                     <button
                       onClick={() => deleteItem(item.id)}
-                      className="p-2 text-slate-300 hover:text-red-500 dark:text-zinc-600 dark:hover:text-red-400 transition-colors ml-1"
+                      className='p-2 text-slate-300 hover:text-red-500 dark:text-zinc-600 dark:hover:text-red-400 transition-colors ml-1'
                     >
                       <Trash2 size={18} />
                     </button>
@@ -529,7 +549,6 @@ export default function App() {
           onJoin={(code) => {
             setListId(code);
             setShowShare(false);
-            // Force socket rejoin handled by useEffect dependency on listId
           }}
         />
       )}
