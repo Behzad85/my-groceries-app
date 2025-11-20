@@ -31,9 +31,21 @@ import {
 import io from "socket.io-client";
 
 // --- Configuration ---
-const SERVER_URL = "http://localhost:3000"; // Change to '' for production
+// FIX: Automatically detect environment
+// If hostname is NOT localhost/127.0.0.1, assume Production and use relative path ('')
+// This allows Apache/Nginx to handle the proxying correctly on your server.
+const isLocal =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1");
+const SERVER_URL = isLocal ? "http://localhost:3000" : "";
 const API_URL = `${SERVER_URL}/api`;
-const socket = io(SERVER_URL);
+
+// Connect socket with auto-discovery
+const socket = io(SERVER_URL, {
+  autoConnect: true,
+  reconnection: true,
+});
 
 // --- Utilities ---
 const generateUUID = () => {
@@ -77,6 +89,7 @@ const Button = ({
 };
 
 // --- MODALS ---
+// (HistoryModal, ShareModal, ChefModal remain largely the same, just ensuring they use the new API_URL)
 
 const HistoryModal = ({ currentListId, onClose, onLoadList, onNewList }) => {
   const [savedLists, setSavedLists] = useState([]);
@@ -186,9 +199,10 @@ const HistoryModal = ({ currentListId, onClose, onLoadList, onNewList }) => {
 
 const ShareModal = ({ listId, onClose }) => {
   const [copied, setCopied] = useState(false);
-
-  // Construct the full shareable URL
-  const shareUrl = `${window.location.origin}${window.location.pathname}?list=${listId}`;
+  const shareUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${window.location.pathname}?list=${listId}`
+      : "";
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl).then(() => {
@@ -200,14 +214,8 @@ const ShareModal = ({ listId, onClose }) => {
   const handleNativeShare = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: "Join my Grocery List",
-          text: "Here is the link to our shared grocery list:",
-          url: shareUrl,
-        });
-      } catch (err) {
-        console.log("Share cancelled");
-      }
+        await navigator.share({ title: "Join my Grocery List", url: shareUrl });
+      } catch (err) {}
     } else {
       handleCopy();
     }
@@ -219,7 +227,6 @@ const ShareModal = ({ listId, onClose }) => {
         <h3 className="font-bold text-lg dark:text-white flex items-center gap-2">
           <Users size={20} className="text-emerald-500" /> Share List
         </h3>
-
         <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-100 dark:border-zinc-800 text-center">
           <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3">
             <LinkIcon size={32} />
@@ -231,28 +238,25 @@ const ShareModal = ({ listId, onClose }) => {
             Anyone with this link can view and edit this list.
           </p>
         </div>
-
         <div className="flex flex-col gap-3">
           <Button
             variant="primary"
             onClick={handleNativeShare}
             className="w-full py-3 text-base shadow-emerald-500/20"
           >
-            <Share2 size={18} /> Share via App
+            <Share2 size={18} /> Share Link
           </Button>
-
           <div className="flex gap-2">
             <input
               readOnly
               value={shareUrl}
-              className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 text-xs text-slate-500 truncate focus:outline-none"
+              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 text-xs text-slate-500 truncate focus:outline-none"
             />
             <Button variant="secondary" onClick={handleCopy}>
               {copied ? <Check size={16} /> : <Copy size={16} />}
             </Button>
           </div>
         </div>
-
         <Button variant="ghost" onClick={onClose} className="w-full">
           Close
         </Button>
@@ -334,6 +338,7 @@ const ChefModal = ({ groceries, onAddDish, onGroupIngredients, onClose }) => {
         </div>
 
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
+          {/* ... (Chef Modal Content remains same as V2) ... */}
           {mode === "dish-to-ingredients" && (
             <>
               <p className="text-sm text-slate-500">
@@ -508,7 +513,6 @@ export default function App() {
   const [newItem, setNewItem] = useState("");
   const [newCategory, setNewCategory] = useState("");
 
-  // Initialize darkMode with system preference check + localStorage
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("grocery_theme");
@@ -519,14 +523,13 @@ export default function App() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(socket.connected); // Sync Status
   const [listId, setListId] = useState(() => {
-    // 1. Check URL params first
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const urlListId = params.get("list");
       if (urlListId) return urlListId;
     }
-    // 2. Fallback to local storage or generate new
     return localStorage.getItem("grocery_list_id") || generateUUID();
   });
 
@@ -537,18 +540,17 @@ export default function App() {
   const [showChef, setShowChef] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  // URL param cleanup - Auto-joins list from URL
+  // URL param cleanup
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("list")) {
       const newListId = params.get("list");
-      setListId(newListId); // Force switch to URL list
-      // Clean the URL without refreshing
+      setListId(newListId);
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
 
-  // Apply Dark Mode Class
+  // Dark Mode
   useEffect(() => {
     const root = window.document.documentElement;
     if (darkMode) {
@@ -560,7 +562,7 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Save accessed list to history
+  // History Persistence
   useEffect(() => {
     const history = JSON.parse(
       localStorage.getItem("grocery_history_ids") || "[]"
@@ -572,9 +574,10 @@ export default function App() {
     localStorage.setItem("grocery_list_id", listId);
   }, [listId]);
 
-  // Fetch Data & Socket Listeners
+  // Data Sync & Socket Listeners
   useEffect(() => {
     setLoading(true);
+
     const fetchAll = async () => {
       try {
         const itemsRes = await fetch(`${API_URL}/lists/${listId}/items`);
@@ -590,10 +593,25 @@ export default function App() {
         setLoading(false);
       }
     };
+
     fetchAll();
-    socket.emit("join-list", listId);
+
+    // Socket Event Handlers
+    const onConnect = () => setIsConnected(true);
+    const onDisconnect = () => setIsConnected(false);
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
     socket.on("list-updated", fetchAll);
-    return () => socket.off("list-updated");
+
+    // Join specific list room
+    socket.emit("join-list", listId);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("list-updated");
+    };
   }, [listId]);
 
   const handleSaveName = async () => {
@@ -721,10 +739,21 @@ export default function App() {
                   />
                 </div>
               )}
-              <p className="text-xs text-emerald-100 opacity-80">
-                {groceries.filter((g) => !g.completed).length} items •{" "}
-                {Object.keys(grouped).length} categories
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span
+                  className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    isConnected
+                      ? "bg-emerald-500/50 text-white"
+                      : "bg-red-500/50 text-white"
+                  }`}
+                >
+                  {isConnected ? <Wifi size={10} /> : <WifiOff size={10} />}{" "}
+                  {isConnected ? "Sync" : "Offline"}
+                </span>
+                <p className="text-xs text-emerald-100 opacity-80">
+                  {groceries.filter((g) => !g.completed).length} items
+                </p>
+              </div>
             </div>
             <div className="flex gap-2">
               <button
