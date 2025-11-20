@@ -392,7 +392,7 @@ export default function App() {
               ref={inputRef}
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
-              placeholder="Add item..."
+              placeholder="Add item to the list..."
               className="flex-1 px-4 py-3.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all"
             />
             <Button
