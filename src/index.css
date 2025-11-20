@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+/* FIX: Override Tailwind v4's default system-based dark mode.
+   This tells Tailwind to apply 'dark:' styles whenever the '.dark' class 
+   is present on the root HTML element.
+*/
+@variant dark (&:where(.dark, .dark *));
+
+/* Optional: Add smooth background transitions */
+@layer base {
+  body {
+    @apply transition-colors duration-300;
+  }
+}
