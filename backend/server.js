@@ -6,7 +6,6 @@ const cors = require("cors");
 const path = require("path");
 
 const PORT = 3000;
-// In production with Nginx, we can allow the origin dynamically or set specific domain
 const app = express();
 const server = http.createServer(app);
 
@@ -14,6 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 // --- Database ---
+// Creates/Connects to 'groceries.db' in the same folder
 const db = new sqlite3.Database(path.join(__dirname, "groceries.db"), (err) => {
   if (err) console.error("DB Error:", err.message);
   else console.log("Connected to SQLite.");
@@ -30,7 +30,7 @@ db.run(`CREATE TABLE IF NOT EXISTS items (
 
 // --- Socket.io ---
 const io = new Server(server, {
-  cors: { origin: "*" }, // Nginx handles security, so * is acceptable here internally
+  cors: { origin: "*" },
 });
 
 io.on("connection", (socket) => {
@@ -42,6 +42,8 @@ io.on("connection", (socket) => {
 const notifyListUpdate = (listId) => io.to(listId).emit("list-updated");
 
 // --- Routes ---
+
+// 1. GET Items
 app.get("/api/lists/:listId/items", (req, res) => {
   db.all(
     "SELECT * FROM items WHERE listId = ? ORDER BY createdAt DESC",
@@ -53,6 +55,7 @@ app.get("/api/lists/:listId/items", (req, res) => {
   );
 });
 
+// 2. ADD Item
 app.post("/api/items", (req, res) => {
   const { id, listId, name, quantity, createdAt } = req.body;
   db.run(
@@ -66,6 +69,7 @@ app.post("/api/items", (req, res) => {
   );
 });
 
+// 3. UPDATE Item
 app.put("/api/items/:id", (req, res) => {
   const { id } = req.params;
   const updates = req.body;
@@ -89,6 +93,7 @@ app.put("/api/items/:id", (req, res) => {
   });
 });
 
+// 4. DELETE Item
 app.delete("/api/items/:id", (req, res) => {
   const { id } = req.params;
   db.get("SELECT listId FROM items WHERE id = ?", [id], (err, row) => {

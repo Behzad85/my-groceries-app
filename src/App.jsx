@@ -15,6 +15,7 @@ import {
   Wifi,
   WifiOff,
   AlertCircle,
+  Link as LinkIcon,
 } from "lucide-react";
 import io from "socket.io-client";
 
@@ -37,16 +38,32 @@ const socket = io(SERVER_URL);
  * Fallback for HTTP contexts where crypto.randomUUID is unavailable.
  */
 const generateUUID = () => {
-  // Try native secure API first
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback for non-secure (HTTP) contexts
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+};
+
+/**
+ * Get initial List ID from URL param or LocalStorage
+ */
+const getInitialListId = () => {
+  // 1. Check URL for ?listId=xyz
+  const params = new URLSearchParams(window.location.search);
+  const urlListId = params.get("listId");
+
+  if (urlListId) {
+    // Clean the URL so the user doesn't get stuck on this query param if they refresh
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return urlListId;
+  }
+
+  // 2. Fallback to storage or new ID
+  return localStorage.getItem("grocery_list_id") || generateUUID();
 };
 
 // --- Components ---
@@ -81,12 +98,13 @@ const Button = ({
 
 const ShareModal = ({ listId, onClose, onJoin }) => {
   const [code, setCode] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
-  const handleCopy = () => {
-    // Fallback copy mechanism for wider browser support
+  const shareUrl = `${window.location.origin}?listId=${listId}`;
+
+  const handleCopyLink = () => {
     const textArea = document.createElement("textarea");
-    textArea.value = listId;
+    textArea.value = shareUrl;
     textArea.style.position = "fixed";
     textArea.style.left = "-9999px";
     document.body.appendChild(textArea);
@@ -94,8 +112,8 @@ const ShareModal = ({ listId, onClose, onJoin }) => {
     textArea.select();
     try {
       document.execCommand("copy");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
     } catch (err) {
       console.error("Copy failed", err);
     }
@@ -120,22 +138,25 @@ const ShareModal = ({ listId, onClose, onJoin }) => {
         <div className="p-6 space-y-6">
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Current List Code
+              Share Invite Link
             </label>
-            <div className="flex gap-2">
-              <code className="flex-1 bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3 rounded-lg font-mono text-sm truncate text-slate-600 dark:text-zinc-300">
-                {listId}
-              </code>
+            <div className="flex flex-col gap-3">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+                <p className="text-xs text-emerald-800 dark:text-emerald-200 break-all font-mono mb-2">
+                  {shareUrl}
+                </p>
+              </div>
               <Button
                 variant="primary"
-                onClick={handleCopy}
-                className="py-2 px-4"
+                onClick={handleCopyLink}
+                className="w-full"
               >
-                {copied ? <Check size={18} /> : <Copy size={18} />}
+                {copiedLink ? <Check size={18} /> : <LinkIcon size={18} />}
+                {copiedLink ? "Link Copied!" : "Copy Link"}
               </Button>
             </div>
             <p className="text-xs text-slate-500 dark:text-zinc-500 mt-2">
-              Share this code to edit this list on another device.
+              Anyone with this link can view and edit this list.
             </p>
           </div>
 
@@ -152,7 +173,7 @@ const ShareModal = ({ listId, onClose, onJoin }) => {
 
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Join Existing List
+              Join Manually
             </label>
             <form
               onSubmit={(e) => {
@@ -192,10 +213,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isConnected, setIsConnected] = useState(socket.connected);
-  // Use generateUUID fallback instead of crypto.randomUUID directly
-  const [listId, setListId] = useState(
-    () => localStorage.getItem("grocery_list_id") || generateUUID()
-  );
+
+  // Initialize List ID from URL (if shared link used) or LocalStorage
+  const [listId, setListId] = useState(() => getInitialListId());
+
   const [showShare, setShowShare] = useState(false);
   const inputRef = useRef(null);
 
@@ -270,14 +291,14 @@ export default function App() {
     if (!newItem.trim()) return;
 
     const itemPayload = {
-      id: generateUUID(), // Use fallback here as well
+      id: generateUUID(),
       listId,
       name: newItem.trim(),
       quantity: parseInt(newQty) || 1,
       createdAt: Date.now(),
     };
 
-    // Optimistic Update (Show it immediately before server confirms)
+    // Optimistic Update
     setGroceries((prev) => [itemPayload, ...prev]);
     setNewItem("");
     setNewQty(1);
@@ -291,7 +312,6 @@ export default function App() {
       });
     } catch (err) {
       console.error("Add failed", err);
-      // In a real app, you'd revert the optimistic update here
       setError("Failed to save item. Is backend running?");
     }
   };
@@ -529,7 +549,6 @@ export default function App() {
           onJoin={(code) => {
             setListId(code);
             setShowShare(false);
-            // Force socket rejoin handled by useEffect dependency on listId
           }}
         />
       )}
