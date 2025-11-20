@@ -9,6 +9,7 @@
 /* Optional: Add smooth background transitions */
 @layer base {
   body {
+    touch-action: manipulation;
     @apply transition-colors duration-300;
   }
 }

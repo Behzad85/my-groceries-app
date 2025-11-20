@@ -75,8 +75,8 @@ const TRANSLATIONS = {
     planPlace: "e.g. Vegan, 3 days",
     settings: "Settings",
     selectRegion: "Select Region & Currency",
-    sync: "Online", // Changed from 'Syncing' to 'Online' to reduce confusion
-    offline: "Offline",
+    sync: "Syncing", // Reverted to Syncing
+    offline: "Not Syncing", // Reverted to Not Syncing
     householdSettings: "Household Settings",
     appSettings: "App Settings",
   },
@@ -105,8 +105,8 @@ const TRANSLATIONS = {
     planPlace: "z.B. Vegan, 3 Tage",
     settings: "Einstellungen",
     selectRegion: "Region & Währung wählen",
-    sync: "Online",
-    offline: "Offline",
+    sync: "Synchronisieren",
+    offline: "Nicht synchron",
     householdSettings: "Haushaltseinstellungen",
     appSettings: "App-Einstellungen",
   },
@@ -135,8 +135,8 @@ const TRANSLATIONS = {
     planPlace: "مثلا: گیاهخواری، ۳ روز",
     settings: "تنظیمات",
     selectRegion: "انتخاب کشور و ارز",
-    sync: "آنلاین",
-    offline: "آفلاین",
+    sync: "همگام‌سازی",
+    offline: "قطع ارتباط",
     householdSettings: "تنظیمات خانه",
     appSettings: "تنظیمات برنامه",
   },
@@ -1013,6 +1013,23 @@ export default function App() {
     localStorage.setItem("grocery_theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
+  // GLOBAL SOCKET CONNECTION LISTENER
+  useEffect(() => {
+    const onConnect = () => setIsConnected(true);
+    const onDisconnect = () => setIsConnected(false);
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+
+    // Ensure we update if it was already connected
+    if (socket.connected) setIsConnected(true);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+    };
+  }, []);
+
   useEffect(() => {
     // RTL Support
     document.documentElement.dir = country === "IR" ? "rtl" : "ltr";
@@ -1120,17 +1137,10 @@ export default function App() {
     };
     fetchItems();
 
-    const onConnect = () => setIsConnected(true);
-    const onDisconnect = () => setIsConnected(false);
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-
     socket.emit("join-list", currentListId);
     socket.on("list-updated", fetchItems);
     return () => {
       socket.off("list-updated");
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
     };
   }, [currentListId]);
 
@@ -1185,15 +1195,13 @@ export default function App() {
 
   const handleCreateList = async (name, houseId = household?.id) => {
     const id = generateUUID();
-    // Optimistic list creation
     setLists((prev) => [...prev, { id, name, householdId: houseId }]);
-    setCurrentListId(id); // Immediately switch
-
     await fetch(`${API_URL}/lists`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-user-id": userId },
       body: JSON.stringify({ id, name, householdId: houseId }),
     });
+    setCurrentListId(id);
   };
 
   const handleRenameList = async (listId, newName) => {
