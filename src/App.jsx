@@ -35,6 +35,7 @@ import {
   List,
   Globe,
   Settings,
+  Upload,
 } from "lucide-react";
 import io from "socket.io-client";
 
@@ -57,6 +58,7 @@ const TRANSLATIONS = {
     joinHouse: "Join Household",
     myHouseholds: "My Households",
     share: "Share",
+    shareVia: "Share via App",
     chef: "AI Chef",
     newList: "New List",
     items: "items",
@@ -75,8 +77,8 @@ const TRANSLATIONS = {
     planPlace: "e.g. Vegan, 3 days",
     settings: "Settings",
     selectRegion: "Select Region & Currency",
-    sync: "Syncing", // Reverted to Syncing
-    offline: "Not Syncing", // Reverted to Not Syncing
+    sync: "Syncing",
+    offline: "Not Syncing",
     householdSettings: "Household Settings",
     appSettings: "App Settings",
   },
@@ -87,6 +89,7 @@ const TRANSLATIONS = {
     joinHouse: "Haushalt beitreten",
     myHouseholds: "Meine Haushalte",
     share: "Teilen",
+    shareVia: "Über App teilen",
     chef: "KI-Koch",
     newList: "Neue Liste",
     items: "Artikel",
@@ -117,6 +120,7 @@ const TRANSLATIONS = {
     joinHouse: "پیوستن به خانه",
     myHouseholds: "خانه‌های من",
     share: "اشتراک‌گذاری",
+    shareVia: "اشتراک‌گذاری با برنامه",
     chef: "سرآشپز هوشمند",
     newList: "لیست جدید",
     items: "مورد",
@@ -192,7 +196,7 @@ const Button = ({
   );
 };
 
-// --- Bottom Nav ---
+// --- Bottom Nav (Redesigned: Floating Rectangle) ---
 const BottomNav = ({
   onOpenLists,
   onOpenHouseholds,
@@ -200,34 +204,40 @@ const BottomNav = ({
   onOpenSettings,
 }) => {
   return (
-    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-      <div className="flex items-center gap-1 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-lg border border-slate-200 dark:border-zinc-800 p-2 rounded-2xl shadow-2xl shadow-emerald-500/10">
+    <div className="fixed bottom-6 left-0 right-0 flex justify-center z-50 px-4">
+      <div className="flex items-center justify-between w-full max-w-sm bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl shadow-xl shadow-slate-300/20 dark:shadow-black/40 p-2">
         <button
           onClick={onOpenHouseholds}
-          className="p-3 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:text-slate-400 dark:hover:bg-emerald-900/20 transition-all flex flex-col items-center gap-1"
+          className="flex-1 p-3 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-zinc-700 transition-all flex flex-col items-center gap-1"
         >
-          <Home size={20} strokeWidth={2.5} />
+          <Home size={22} strokeWidth={2.5} />
         </button>
-        <div className="w-px h-8 bg-slate-200 dark:bg-zinc-800 mx-1"></div>
+
+        <div className="w-px h-6 bg-slate-200 dark:bg-zinc-700"></div>
+
         <button
           onClick={onOpenLists}
-          className="p-3 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:text-slate-400 dark:hover:bg-emerald-900/20 transition-all flex flex-col items-center gap-1"
+          className="flex-1 p-3 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-zinc-700 transition-all flex flex-col items-center gap-1"
         >
-          <List size={20} strokeWidth={2.5} />
+          <List size={22} strokeWidth={2.5} />
         </button>
-        <div className="w-px h-8 bg-slate-200 dark:bg-zinc-800 mx-1"></div>
+
+        <div className="w-px h-6 bg-slate-200 dark:bg-zinc-700"></div>
+
         <button
           onClick={onOpenChef}
-          className="p-3 rounded-xl text-fuchsia-600 bg-fuchsia-50 hover:bg-fuchsia-100 dark:bg-fuchsia-900/20 dark:text-fuchsia-400 transition-all flex flex-col items-center gap-1"
+          className="flex-1 p-3 rounded-xl text-fuchsia-600 hover:bg-fuchsia-50 dark:text-fuchsia-400 dark:hover:bg-fuchsia-900/20 transition-all flex flex-col items-center gap-1"
         >
           <ChefHat size={22} strokeWidth={2.5} />
         </button>
-        <div className="w-px h-8 bg-slate-200 dark:bg-zinc-800 mx-1"></div>
+
+        <div className="w-px h-6 bg-slate-200 dark:bg-zinc-700"></div>
+
         <button
           onClick={onOpenSettings}
-          className="p-3 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:text-slate-400 dark:hover:bg-emerald-900/20 transition-all flex flex-col items-center gap-1"
+          className="flex-1 p-3 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-zinc-700 transition-all flex flex-col items-center gap-1"
         >
-          <Settings size={20} strokeWidth={2.5} />
+          <Settings size={22} strokeWidth={2.5} />
         </button>
       </div>
     </div>
@@ -251,7 +261,6 @@ const SettingsModal = ({ country, onChangeCountry, onClose, t }) => {
             ✕
           </button>
         </div>
-
         <div className="p-6 space-y-6">
           <div>
             <h4 className="text-sm font-bold text-slate-800 dark:text-white mb-3">
@@ -280,7 +289,6 @@ const SettingsModal = ({ country, onChangeCountry, onClose, t }) => {
               ))}
             </div>
           </div>
-
           <Button variant="ghost" onClick={onClose} className="w-full">
             Close
           </Button>
@@ -302,7 +310,6 @@ const ListsModal = ({
 }) => {
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
-
   const startEditing = (l) => {
     setEditingId(l.id);
     setEditName(l.name);
@@ -438,7 +445,6 @@ const HouseholdModal = ({
   const [view, setView] = useState("list");
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
-
   const fetchHouseholds = () => {
     fetch(`${API_URL}/users/${userId}/households`)
       .then((res) => res.json())
@@ -646,6 +652,19 @@ const ShareModal = ({ currentHousehold, onClose, t }) => {
     });
   };
 
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Join ${currentHousehold?.name}`,
+          url: shareUrl,
+        });
+      } catch (err) {}
+    } else {
+      handleCopyLink();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-6 border border-slate-200 dark:border-zinc-800">
@@ -660,33 +679,45 @@ const ShareModal = ({ currentHousehold, onClose, t }) => {
             {currentHousehold?.name}
           </p>
         </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
-            Link
-          </label>
-          <div className="flex gap-2">
-            <input
-              readOnly
-              value={shareUrl}
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 text-xs text-slate-500 truncate focus:outline-none"
-            />
-            <Button variant="secondary" onClick={handleCopyLink}>
-              {copiedLink ? <Check size={16} /> : <Copy size={16} />}
-            </Button>
+
+        {/* Updated Share Section: Native Share Button */}
+        <Button
+          variant="primary"
+          onClick={handleNativeShare}
+          className="w-full py-3 shadow-emerald-500/20 text-base"
+        >
+          <Upload size={18} /> {t("shareVia")}
+        </Button>
+
+        <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-zinc-800">
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
+              Link
+            </label>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={shareUrl}
+                className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 text-xs text-slate-500 truncate focus:outline-none"
+              />
+              <Button variant="secondary" onClick={handleCopyLink}>
+                {copiedLink ? <Check size={16} /> : <Copy size={16} />}
+              </Button>
+            </div>
           </div>
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
-            ID
-          </label>
-          <div className="flex gap-2">
-            <code className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 text-xs text-slate-500 truncate font-mono flex items-center">
-              <KeyRound size={12} className="mr-2 opacity-50" />
-              {houseId}
-            </code>
-            <Button variant="secondary" onClick={handleCopyId}>
-              {copiedId ? <Check size={16} /> : <Copy size={16} />}
-            </Button>
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
+              ID
+            </label>
+            <div className="flex gap-2">
+              <code className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 text-xs text-slate-500 truncate font-mono flex items-center">
+                <KeyRound size={12} className="mr-2 opacity-50" />
+                {houseId}
+              </code>
+              <Button variant="secondary" onClick={handleCopyId}>
+                {copiedId ? <Check size={16} /> : <Copy size={16} />}
+              </Button>
+            </div>
           </div>
         </div>
         <Button variant="ghost" onClick={onClose} className="w-full">
@@ -713,7 +744,6 @@ const ChefModal = ({
   const handleGenerate = async () => {
     if (mode !== "ingredients-to-dish" && !input.trim()) return;
     setLoading(true);
-
     let inputData = input;
     if (mode === "ingredients-to-dish") {
       inputData = groceries.filter((g) => !g.completed).map((g) => g.name);
@@ -723,7 +753,6 @@ const ChefModal = ({
         return;
       }
     }
-
     try {
       const res = await fetch(`${API_URL}/ai/generate`, {
         method: "POST",
@@ -740,17 +769,14 @@ const ChefModal = ({
     }
   };
 
-  // NEW: Helper to remove an item from results after adding
   const handleAddAndRemove = (itemToAdd) => {
-    onAddDish(input, [itemToAdd]); // Add single item
-    setResults((prev) => prev.filter((i) => i.name !== itemToAdd.name)); // Remove from list
+    onAddDish(input, [itemToAdd]);
+    setResults((prev) => prev.filter((i) => i.name !== itemToAdd.name));
   };
-
   const handleAddPlan = (plan) => {
     onAddDish(plan.dish, plan.ingredients);
     setResults((prev) => prev.filter((p) => p.dish !== plan.dish));
   };
-
   const handleOrganize = (res) => {
     onGroupIngredients(res.dish, res.matchedIngredients);
     setResults((prev) => prev.filter((r) => r.dish !== res.dish));
@@ -793,7 +819,6 @@ const ChefModal = ({
             )
           )}
         </div>
-
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
           {mode === "dish-to-ingredients" && (
             <>
@@ -871,7 +896,6 @@ const ChefModal = ({
               )}
             </>
           )}
-
           {mode === "meal-planner" && (
             <>
               <p className="text-sm text-slate-500">Describe your plan.</p>
@@ -924,7 +948,6 @@ const ChefModal = ({
               )}
             </>
           )}
-
           {mode === "ingredients-to-dish" && (
             <>
               <p className="text-sm text-slate-500">
@@ -964,7 +987,6 @@ const ChefModal = ({
 
 // --- MAIN APP ---
 export default function App() {
-  // Identity
   const [userId] = useState(() => {
     let stored = localStorage.getItem("grocery_user_id");
     if (!stored) {
@@ -974,7 +996,6 @@ export default function App() {
     return stored;
   });
 
-  // State
   const [household, setHousehold] = useState(null);
   const [lists, setLists] = useState([]);
   const [currentListId, setCurrentListId] = useState(null);
@@ -996,34 +1017,26 @@ export default function App() {
   const [accessDenied, setAccessDenied] = useState(false);
   const [isConnected, setIsConnected] = useState(socket.connected);
 
-  // Modals
   const [showShare, setShowShare] = useState(false);
   const [showChef, setShowChef] = useState(false);
   const [showHouseholds, setShowHouseholds] = useState(false);
   const [showLists, setShowLists] = useState(false);
-  const [showSettings, setShowSettings] = useState(false); // New State
+  const [showSettings, setShowSettings] = useState(false);
 
-  // Helper for translation
   const t = (key) => TRANSLATIONS[country][key] || TRANSLATIONS["UK"][key];
 
-  // --- Initialization ---
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
     localStorage.setItem("grocery_theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
-  // GLOBAL SOCKET CONNECTION LISTENER
   useEffect(() => {
     const onConnect = () => setIsConnected(true);
     const onDisconnect = () => setIsConnected(false);
-
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
-
-    // Ensure we update if it was already connected
     if (socket.connected) setIsConnected(true);
-
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
@@ -1031,16 +1044,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // RTL Support
     document.documentElement.dir = country === "IR" ? "rtl" : "ltr";
-
-    // Fetch user country on init
     fetch(`${API_URL}/users/${userId}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.country) setCountry(data.country);
         else {
-          // Initialize user if new
           fetch(`${API_URL}/users/init`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1049,7 +1058,6 @@ export default function App() {
         }
       });
 
-    // Join Logic
     const params = new URLSearchParams(window.location.search);
     const joinId = params.get("join_household");
     if (joinId) {
@@ -1064,7 +1072,6 @@ export default function App() {
     }
   }, []);
 
-  // Update country setting
   const changeCountry = (code) => {
     setCountry(code);
     fetch(`${API_URL}/users/${userId}`, {
@@ -1074,11 +1081,9 @@ export default function App() {
     });
   };
 
-  // Fetch Lists
   useEffect(() => {
     if (!household) return;
     localStorage.setItem("grocery_last_household", JSON.stringify(household));
-
     fetch(`${API_URL}/households/${household.id}/lists`, {
       headers: { "x-user-id": userId },
     })
@@ -1100,7 +1105,6 @@ export default function App() {
           handleCreateList(t("newList"), household.id);
         }
       });
-
     socket.emit("join-household", household.id);
     socket.on("household-updated", () => {
       fetch(`${API_URL}/households/${household.id}/lists`, {
@@ -1118,7 +1122,6 @@ export default function App() {
     return () => socket.off("household-updated");
   }, [household, country]);
 
-  // Fetch Items
   useEffect(() => {
     if (!currentListId) return;
     setLoading(true);
@@ -1136,7 +1139,6 @@ export default function App() {
       }
     };
     fetchItems();
-
     socket.emit("join-list", currentListId);
     socket.on("list-updated", fetchItems);
     return () => {
@@ -1144,7 +1146,6 @@ export default function App() {
     };
   }, [currentListId]);
 
-  // --- Actions ---
   const handleCreateHousehold = async (name) => {
     const id = generateUUID();
     await fetch(`${API_URL}/households`, {
@@ -1308,7 +1309,6 @@ export default function App() {
     a === "Uncategorized" ? 1 : b === "Uncategorized" ? -1 : a.localeCompare(b)
   );
 
-  // Render Logic
   if (!household && !accessDenied) {
     return (
       <div className="min-h-screen bg-slate-100 dark:bg-zinc-950 flex items-center justify-center p-4">
@@ -1365,7 +1365,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-zinc-950 text-slate-800 dark:text-slate-100 font-sans transition-colors">
       <div className="max-w-md mx-auto bg-white dark:bg-black shadow-xl min-h-screen sm:min-h-0 flex flex-col sm:border-x sm:border-slate-200 dark:sm:border-zinc-800">
-        {/* Header */}
+        {/* Header - Restored Share & Theme */}
         <div className="bg-emerald-600 dark:bg-emerald-900/90 text-white sticky top-0 z-20 backdrop-blur-md shadow-sm p-4 pb-6">
           <div className="flex justify-between items-start">
             <div>
@@ -1379,7 +1379,11 @@ export default function App() {
               <div className="flex gap-3 mt-1">
                 <p className="text-xs text-emerald-100 opacity-80">
                   {groceries.filter((g) => !g.completed).length} {t("items")} •
-                  <span className="flex items-center gap-1 ml-1 inline-flex">
+                  <span
+                    className={`flex items-center gap-1 ml-1 inline-flex ${
+                      isConnected ? "text-emerald-100" : "text-red-300"
+                    }`}
+                  >
                     {isConnected ? <Wifi size={10} /> : <WifiOff size={10} />}{" "}
                     {isConnected ? t("sync") : t("offline")}
                   </span>
@@ -1403,7 +1407,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Input Area */}
         <div className="p-4 bg-slate-50 dark:bg-zinc-900/80 border-b border-slate-200 dark:border-zinc-800 sticky top-[108px] z-10 backdrop-blur">
           <form onSubmit={addItem} className="flex flex-col gap-2">
             <div className="flex gap-2">
@@ -1438,7 +1441,6 @@ export default function App() {
           </form>
         </div>
 
-        {/* Items List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-24">
           {categories.map((cat) => (
             <div
